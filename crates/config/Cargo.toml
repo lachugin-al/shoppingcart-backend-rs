@@ -1,0 +1,11 @@
+[package]
+name = "app_config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+config = { workspace = true }
+dotenvy = { workspace = true }
+anyhow = { workspace = true }
+humantime = "2.2.0"
