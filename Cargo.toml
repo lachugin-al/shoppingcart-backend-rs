@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "crates/app"
+    "crates/app",
+    "crates/model"
 ]
 
 # Опционально: общие зависимости и их версии для всех workspace members
