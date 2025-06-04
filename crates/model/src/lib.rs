@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Delivery — информация о доставке заказа.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Delivery {
     pub name: String,
     pub phone: String,
@@ -14,7 +14,7 @@ pub struct Delivery {
 }
 
 /// Payment — информация об оплате заказа.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Payment {
     pub transaction: String,
     #[serde(rename = "request_id")]
@@ -34,7 +34,7 @@ pub struct Payment {
 }
 
 /// Item — отдельный элемент заказа.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Item {
     #[serde(rename = "chrt_id")]
     pub chrt_id: i32,
@@ -54,7 +54,7 @@ pub struct Item {
 }
 
 /// Order — основной агрегат заказа.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Order {
     #[serde(rename = "order_uid")]
     pub order_uid: String,
