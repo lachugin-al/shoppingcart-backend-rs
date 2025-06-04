@@ -1,81 +1,136 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Delivery — информация о доставке заказа.
+/// Delivery - Information about order delivery.
+///
+/// Contains all the necessary details for shipping an order to a customer,
+/// including contact information and address details.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Delivery {
+    /// Recipient's full name
     pub name: String,
+    /// Contact phone number
     pub phone: String,
+    /// Postal code
     pub zip: String,
+    /// City name
     pub city: String,
+    /// Street address
     pub address: String,
+    /// Region or state
     pub region: String,
+    /// Contact email address
     pub email: String,
 }
 
-/// Payment — информация об оплате заказа.
+/// Payment - Information about order payment.
+///
+/// Contains all the details related to a payment transaction,
+/// including amounts, transaction IDs, and payment provider information.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Payment {
+    /// Unique transaction identifier
     pub transaction: String,
+    /// Request identifier for the payment
     #[serde(rename = "request_id")]
     pub request_id: String,
+    /// Currency code (e.g., USD, EUR)
     pub currency: String,
+    /// Payment service provider name
     pub provider: String,
+    /// Total payment amount
     pub amount: i32,
+    /// Payment date/time as Unix timestamp
     #[serde(rename = "payment_dt")]
     pub payment_dt: i64,
+    /// Bank name or identifier
     pub bank: String,
+    /// Cost of delivery
     #[serde(rename = "delivery_cost")]
     pub delivery_cost: i32,
+    /// Total cost of goods without delivery
     #[serde(rename = "goods_total")]
     pub goods_total: i32,
+    /// Any additional fees
     #[serde(rename = "custom_fee")]
     pub custom_fee: i32,
 }
 
-/// Item — отдельный элемент заказа.
+/// Item - Individual order item.
+///
+/// Represents a single product in an order with its details
+/// such as price, size, and tracking information.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Item {
+    /// Chart ID - unique identifier for the item in the chart
     #[serde(rename = "chrt_id")]
     pub chrt_id: i32,
+    /// Tracking number for the item shipment
     #[serde(rename = "track_number")]
     pub track_number: String,
+    /// Original price of the item
     pub price: i32,
+    /// Row identifier
     pub rid: String,
+    /// Product name
     pub name: String,
+    /// Discount percentage
     pub sale: i32,
+    /// Size information (may be numeric or descriptive like "S", "M", "L")
     pub size: String,
+    /// Final price after applying discounts
     #[serde(rename = "total_price")]
     pub total_price: i32,
+    /// Nomenclature ID - product catalog identifier
     #[serde(rename = "nm_id")]
     pub nm_id: i32,
+    /// Brand name
     pub brand: String,
+    /// Item status code
     pub status: i32,
 }
 
-/// Order — основной агрегат заказа.
+/// Order - Main order aggregate.
+///
+/// The central entity in the shopping cart system that combines all information
+/// about a customer's purchase, including delivery details, payment information,
+/// and the items being ordered.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Order {
+    /// Unique identifier for the order
     #[serde(rename = "order_uid")]
     pub order_uid: String,
+    /// Tracking number for the entire order
     #[serde(rename = "track_number")]
     pub track_number: String,
+    /// Entry point identifier
     pub entry: String,
+    /// Delivery information
     pub delivery: Delivery,
+    /// Payment details
     pub payment: Payment,
+    /// List of items in the order
     pub items: Vec<Item>,
+    /// Language/locale code
     pub locale: String,
+    /// Internal signature for verification
     #[serde(rename = "internal_signature")]
     pub internal_signature: String,
+    /// Customer identifier
     #[serde(rename = "customer_id")]
     pub customer_id: String,
+    /// Delivery service provider
     #[serde(rename = "delivery_service")]
     pub delivery_service: String,
+    /// Sharding key for database partitioning
     pub shardkey: String,
+    /// Service manager identifier
     #[serde(rename = "sm_id")]
     pub sm_id: i32,
+    /// Order creation timestamp
     #[serde(rename = "date_created")]
     pub date_created: DateTime<Utc>,
+    /// Out-of-stock shard identifier
     #[serde(rename = "oof_shard")]
     pub oof_shard: String,
 }
@@ -143,7 +198,7 @@ mod tests {
         assert_eq!(order.items.len(), 1);
         assert_eq!(order.items[0].chrt_id, 9934930);
 
-        // Проверка chrono 0.4.23+: with_ymd_and_hms
+        // Check for chrono 0.4.23+: with_ymd_and_hms
         let expected = Utc.with_ymd_and_hms(2021, 11, 26, 6, 22, 19).unwrap();
         assert_eq!(order.date_created, expected);
 

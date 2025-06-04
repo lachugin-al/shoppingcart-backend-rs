@@ -4,15 +4,29 @@ use thiserror::Error;
 use tokio_postgres::Client;
 use chrono::{NaiveDateTime};
 
+/// # RepositoryError
+///
+/// Error types that can occur during repository operations.
+///
+/// This enum represents the various error conditions that might arise
+/// when interacting with the data storage layer.
 #[derive(Debug, Error)]
 pub enum RepositoryError {
+    /// Database-related errors, wrapping the underlying PostgreSQL error
     #[error("Database error: {0}")]
     Db(#[from] tokio_postgres::Error),
+
     #[error("Not found")]
     NotFound,
 }
 
-/// --- DeliveriesRepository repository ---
+/// # DeliveriesRepository
+///
+/// Repository interface for managing delivery information.
+/// This trait defines operations for storing and retrieving delivery data.
+///
+/// Implementations of this trait provide specific storage mechanisms,
+/// such as PostgreSQL database access.
 
 #[async_trait]
 pub trait DeliveriesRepository: Send + Sync {
@@ -20,7 +34,12 @@ pub trait DeliveriesRepository: Send + Sync {
     async fn get_by_order_id(&self, order_uid: &str) -> Result<Delivery, RepositoryError>;
 }
 
+/// PostgreSQL implementation of the DeliveriesRepository trait.
+///
+/// This struct provides methods to store and retrieve delivery information
+/// using a PostgreSQL database.
 pub struct PgDeliveriesRepository {
+    /// PostgreSQL client for database operations
     db: Client,
 }
 
@@ -74,7 +93,16 @@ impl DeliveriesRepository for PgDeliveriesRepository {
     }
 }
 
-/// --- ItemsRepository repository ---
+/// # ItemsRepository
+///
+/// Repository interface for managing order items.
+/// This trait defines operations for storing and retrieving item data.
+///
+/// Items represent products in an order, with their properties like price,
+/// quantity, and other attributes.
+///
+/// Implementations of this trait provide specific storage mechanisms,
+/// such as PostgreSQL database access.
 
 #[async_trait]
 pub trait ItemsRepository: Send + Sync {
@@ -82,7 +110,12 @@ pub trait ItemsRepository: Send + Sync {
     async fn get_by_order_id(&self, order_uid: &str) -> Result<Vec<Item>, RepositoryError>;
 }
 
+/// PostgreSQL implementation of the ItemsRepository trait.
+///
+/// This struct provides methods to store and retrieve order items
+/// using a PostgreSQL database.
 pub struct PgItemsRepository {
+    /// PostgreSQL client for database operations
     db: Client,
 }
 
@@ -147,7 +180,16 @@ impl ItemsRepository for PgItemsRepository {
     }
 }
 
-/// --- OrdersRepository repository ---
+/// # OrdersRepository
+///
+/// Repository interface for managing orders.
+/// This trait defines operations for storing and retrieving order data.
+///
+/// Orders are the main aggregates in the shopping cart system, containing
+/// references to delivery information, payment details, and order items.
+///
+/// Implementations of this trait provide specific storage mechanisms,
+/// such as PostgreSQL database access.
 
 #[async_trait]
 pub trait OrdersRepository: Send + Sync {
@@ -155,7 +197,13 @@ pub trait OrdersRepository: Send + Sync {
     async fn get_by_id(&self, order_uid: &str) -> Result<Order, RepositoryError>;
 }
 
+/// PostgreSQL implementation of the OrdersRepository trait.
+///
+/// This struct provides methods to store and retrieve orders
+/// using a PostgreSQL database. Orders are the main aggregates
+/// in the shopping cart system.
 pub struct PgOrdersRepository {
+    /// PostgreSQL client for database operations
     db: Client,
 }
 
@@ -174,7 +222,7 @@ impl OrdersRepository for PgOrdersRepository {
                 customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         "#;
-        // Используем .naive_utc() чтобы привести DateTime<Utc> к NaiveDateTime для postgres
+        // Using .naive_utc() to convert DateTime<Utc> to NaiveDateTime for postgres
         self.db.execute(
             query,
             &[
@@ -203,7 +251,7 @@ impl OrdersRepository for PgOrdersRepository {
         let row = self.db.query_opt(query, &[&order_uid]).await?;
         match row {
             Some(row) => {
-                // date_created: NaiveDateTime → DateTime<Utc>
+                // Converting date_created from NaiveDateTime to DateTime<Utc>
                 let date_created: NaiveDateTime = row.get("date_created");
                 Ok(Order {
                     order_uid: row.get("order_uid"),
@@ -227,7 +275,16 @@ impl OrdersRepository for PgOrdersRepository {
     }
 }
 
-/// --- PaymentsRepository repository ---
+/// # PaymentsRepository
+///
+/// Repository interface for managing payment information.
+/// This trait defines operations for storing and retrieving payment data.
+///
+/// Payments contain transaction details, amounts, currency information,
+/// and other payment-related attributes.
+///
+/// Implementations of this trait provide specific storage mechanisms,
+/// such as PostgreSQL database access.
 
 #[async_trait]
 pub trait PaymentsRepository: Send + Sync {
@@ -235,7 +292,13 @@ pub trait PaymentsRepository: Send + Sync {
     async fn get_by_order_id(&self, order_uid: &str) -> Result<Payment, RepositoryError>;
 }
 
+/// PostgreSQL implementation of the PaymentsRepository trait.
+///
+/// This struct provides methods to store and retrieve payment information
+/// using a PostgreSQL database. Payments contain transaction details,
+/// amounts, and other payment-related attributes.
 pub struct PgPaymentsRepository {
+    /// PostgreSQL client for database operations
     db: Client,
 }
 
