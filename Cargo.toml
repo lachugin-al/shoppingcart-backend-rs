@@ -1,21 +1,6 @@
-[package]
-name = "shoppingcart-backend-rs"
-version = "0.1.0"
-edition = "2024"
-
 [workspace]
 members = [
-    "crates/app",
-    "crates/config",
-    "crates/db",
-    "crates/model",
-    "crates/repository",
-    "crates/service",
-    "crates/cache",
-    "crates/kafka",
-    "crates/metrics",
-    "crates/util",
-    "crates/tools"
+    "crates/app"
 ]
 
 # Опционально: общие зависимости и их версии для всех workspace members
