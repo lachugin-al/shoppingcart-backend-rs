@@ -52,7 +52,6 @@ pub async fn init_db_pool(cfg: &AppConfig) -> Result<Pool> {
 /// # Errors
 /// Returns an error if migration files cannot be read or applied.
 pub async fn run_migrations(client: &Client, migrations_dir: &str) -> Result<()> {
-    let pattern = format!("{}/{}.sql", migrations_dir, "*");
     let mut entries = fs::read_dir(migrations_dir).await
         .context("Failed to read migrations directory")?;
 

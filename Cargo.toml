@@ -4,7 +4,8 @@ members = [
     "crates/model",
     "crates/repository",
     "crates/config",
-    "crates/db"
+    "crates/db",
+    "crates/service"
 ]
 
 # Опционально: общие зависимости и их версии для всех workspace members
@@ -24,6 +25,7 @@ config = "0.15.11"
 app_config = { path = "crates/config" }
 dotenvy = "0.15.7"
 tokio-postgres = { version = "0.7.13", features = ["with-chrono-0_4"] }
+deadpool-postgres = "0.12"
 chrono = { version = "0.4.41", features = ["serde"] }
 postgres-types = { version = "0.2.9", features = ["derive"] }
 
