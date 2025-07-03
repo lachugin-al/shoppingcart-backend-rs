@@ -1,0 +1,17 @@
+[package]
+name = "kafka-consumer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rdkafka = { version = "0.37", features = ["tokio"] }
+model = { path = "../model" }
+service = { path = "../service" }
+cache = { path = "../cache" }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+async-trait = "0.1"
+tokio-stream = "0.1.17"
+tokio = { workspace = true }
