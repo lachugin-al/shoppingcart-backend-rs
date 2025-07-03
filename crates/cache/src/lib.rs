@@ -1,5 +1,13 @@
-//! In-memory cache for storing orders by order_uid, with thread-safe access
-//! and async population from the database.
+//! In-memory, thread-safe cache for storing orders by `order_uid`.
+//!
+//! This cache is designed for concurrent use in an async environment, using [`tokio::sync::RwLock`].
+//! It supports async population from the database via repository abstractions and provides
+//! fast lookups/updates for the order lifecycle.
+//!
+//! ## Features
+//! - Thread-safe, async-first API
+//! - Integration with repositories for population from DB
+//! - Unit tests for correctness and concurrency
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -9,25 +17,34 @@ use repository::{OrdersRepository, DeliveriesRepository, PaymentsRepository, Ite
 use anyhow::Result;
 use deadpool_postgres::{Pool, Object as DbConn};
 
-/// Thread-safe in-memory order cache.
+/// Thread-safe, in-memory cache for orders, keyed by order UID.
+///
+/// The cache uses [`tokio::sync::RwLock`] to allow concurrent reads and exclusive writes.
+/// Suitable for sharing across async tasks and within application state.
 #[derive(Debug, Default)]
 pub struct OrderCache {
     inner: Arc<RwLock<HashMap<String, Order>>>,
 }
 
 impl OrderCache {
-    /// Create a new, empty order cache.
+    /// Creates a new, empty order cache.
     pub fn new() -> Self {
         Self {
             inner: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
-    /// Load all orders from the DB into the cache.
+    /// Loads all orders from the database into the cache.
+    ///
+    /// This method queries the DB for all `order_uid` values, then fetches the
+    /// complete order (with delivery, payment, items) for each, and stores it in the cache.
     ///
     /// # Arguments
-    /// * `pool` — deadpool Postgres pool for DB connection.
-    /// * `orders_repo`, `deliveries_repo`, `payments_repo`, `items_repo` — repositories for full order data.
+    /// - `pool`: Deadpool Postgres connection pool.
+    /// - `orders_repo`, `deliveries_repo`, `payments_repo`, `items_repo`: repository traits to access full order data.
+    ///
+    /// # Errors
+    /// Returns an error if DB connection or repository calls fail.
     pub async fn load_from_db<R1, R2, R3, R4>(
         &self,
         pool: &Pool,
@@ -61,20 +78,27 @@ impl OrderCache {
         Ok(())
     }
 
-    /// Get a cloned order by its order_uid (None if not found).
+    /// Get a cloned order from the cache by its UID.
+    ///
+    /// Returns `Some(Order)` if found, `None` if missing.
     pub async fn get(&self, order_uid: &str) -> Option<Order> {
         let map = self.inner.read().await;
         map.get(order_uid).cloned()
     }
 
     /// Insert or update an order in the cache.
+    ///
+    /// If an order with this UID already exists, it is overwritten.
     pub async fn set(&self, order: Order) {
         let mut map = self.inner.write().await;
         map.insert(order.order_uid.clone(), order);
     }
 }
 
-/// Helper to load the full order with all relations from the repositories.
+/// Loads a fully populated [`Order`] from repositories by UID.
+///
+/// Fetches order main data, then fetches delivery, payment, and items.
+/// Returns error if any component is missing.
 pub async fn load_full_order<R1, R2, R3, R4>(
     order_uid: &str,
     orders_repo: &R1,
@@ -95,7 +119,9 @@ where
     Ok(order)
 }
 
-/// Helper to get all order_uids from the "orders" table.
+/// Returns all order_uids from the `orders` table.
+///
+/// Used for bulk cache population at application startup.
 async fn get_all_order_uids(conn: &DbConn) -> Result<Vec<String>> {
     let rows = conn.query("SELECT order_uid FROM orders", &[]).await?;
     Ok(rows
@@ -103,7 +129,6 @@ async fn get_all_order_uids(conn: &DbConn) -> Result<Vec<String>> {
         .filter_map(|r| r.try_get::<_, String>("order_uid").ok())
         .collect())
 }
-
 
 #[cfg(test)]
 mod tests {
