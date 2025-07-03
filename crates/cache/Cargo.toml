@@ -1,0 +1,13 @@
+[package]
+name = "cache"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+model = { path = "../model" }
+repository = { path = "../repository" }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread"] }
+tokio-postgres = { workspace = true }
+deadpool-postgres = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }

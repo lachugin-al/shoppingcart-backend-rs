@@ -5,7 +5,8 @@ members = [
     "crates/repository",
     "crates/config",
     "crates/db",
-    "crates/service"
+    "crates/service",
+    "crates/cache"
 ]
 
 # Опционально: общие зависимости и их версии для всех workspace members
