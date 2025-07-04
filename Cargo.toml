@@ -7,7 +7,8 @@ members = [
     "crates/db",
     "crates/service",
     "crates/cache",
-    "crates/kafka-consumer"
+    "crates/kafka-consumer",
+    "crates/kafka-producer"
 ]
 
 # Опционально: общие зависимости и их версии для всех workspace members

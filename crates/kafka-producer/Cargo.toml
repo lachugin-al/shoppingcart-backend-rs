@@ -1,0 +1,18 @@
+[package]
+name = "kafka-producer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rdkafka = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+app_config = { workspace = true }
+model = { path = "../model" }
+tokio = { workspace = true }
+chrono = { workspace = true }
+rand = "0.8.5"
+fake = { version = "2.9.2", features = ["derive", "chrono"] }
+uuid = { version = "1.7.0", features = ["v4", "serde"] }
