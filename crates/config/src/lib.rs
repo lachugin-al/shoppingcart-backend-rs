@@ -68,16 +68,6 @@ pub struct AppConfig {
     /// Exposed port for Kafka exporter metrics endpoint.
     pub kafka_exporter_port: u16,
 
-    // --- Jaeger (tracing) ---
-
-    /// Jaeger agent host (for UDP spans, typically "jaeger" in Docker Compose).
-    pub jaeger_agent_host: String,
-    /// Jaeger agent UDP port (default: 6831).
-    pub jaeger_agent_port: u16,
-    /// Jaeger collector HTTP port (default: 14268).
-    pub jaeger_collector_port: u16,
-    /// Jaeger UI web interface port (default: 16686).
-    pub jaeger_ui_port: u16,
 }
 
 /// Custom deserializer for graceful shutdown timeout.
@@ -100,17 +90,21 @@ impl AppConfig {
     /// # Errors
     /// Returns an error if environment variables are invalid or missing required values.
     pub fn load() -> Result<Self> {
+        // Load from .env file (for Docker environment)
         dotenvy::dotenv().ok();
 
+        // Note: These default values are for Docker Compose compatibility.
+        // When running locally, these values should be overridden by environment variables
+        // with localhost as hostname.
         let settings = config::Config::builder()
             // Database
-            .set_default("db_host", "localhost")?
+            .set_default("db_host", "localhost")? // Use localhost for local development
             .set_default("db_port", 5432)?
             .set_default("db_user", "orders_user")?
             .set_default("db_password", "securepassword")?
             .set_default("db_name", "orders_db")?
             // Kafka
-            .set_default("kafka_brokers", vec!["localhost:9092"])? // If multiple brokers, use comma-separated string in env
+            .set_default("kafka_brokers", vec!["localhost:9092"])? // Use localhost for local development
             .set_default("kafka_topic", "orders")?
             .set_default("kafka_group_id", "orders_group")?
             // HTTP
@@ -126,16 +120,11 @@ impl AppConfig {
             // Postgres exporter
             .set_default(
                 "data_source_name",
-                "postgresql://orders_user:securepassword@localhost:5432/orders_db?sslmode=disable",
+                "postgresql://orders_user:securepassword@localhost:5432/orders_db?sslmode=disable", // Use localhost for local development
             )?
             .set_default("postgres_exporter_port", 9187)?
             // Kafka exporter
             .set_default("kafka_exporter_port", 9308)?
-            // Jaeger
-            .set_default("jaeger_agent_host", "localhost")?
-            .set_default("jaeger_agent_port", 6831)?
-            .set_default("jaeger_collector_port", 14268)?
-            .set_default("jaeger_ui_port", 16686)?
             .add_source(config::Environment::default().separator("_"))
             .build()?;
 

@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -98,7 +98,7 @@
           "sort": "none"
         }
       },
-      "title": "HTTP Requests",
+      "title": "PostgreSQL Query Rate",
       "type": "timeseries",
       "targets": [
         {
@@ -106,97 +106,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "sum(rate(http_requests_total[5m])) by (endpoint)",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0.5,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "title": "HTTP Response Time",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint))",
+          "expr": "rate(pg_stat_database_xact_commit{datname=\"orders_db\"}[5m]) + rate(pg_stat_database_xact_rollback{datname=\"orders_db\"}[5m])",
           "refId": "A"
         }
       ]
@@ -261,10 +171,10 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 8
+        "x": 12,
+        "y": 0
       },
-      "id": 3,
+      "id": 2,
       "options": {
         "legend": {
           "calcs": [],
@@ -277,7 +187,7 @@
           "sort": "none"
         }
       },
-      "title": "Errors",
+      "title": "PostgreSQL Transaction Rate",
       "type": "timeseries",
       "targets": [
         {
@@ -285,8 +195,18 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "sum(rate(errors_total[5m])) by (source)",
+          "expr": "rate(pg_stat_database_xact_commit{datname=\"orders_db\"}[5m])",
+          "legendFormat": "Commits",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "rate(pg_stat_database_xact_rollback{datname=\"orders_db\"}[5m])",
+          "legendFormat": "Rollbacks",
+          "refId": "B"
         }
       ]
     },
@@ -351,6 +271,95 @@
       "gridPos": {
         "h": 8,
         "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "title": "Database Size",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "pg_database_size_bytes{datname=\"orders_db\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0.5,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
         "x": 12,
         "y": 8
       },
@@ -367,7 +376,7 @@
           "sort": "none"
         }
       },
-      "title": "Network Traffic",
+      "title": "Active Connections",
       "type": "timeseries",
       "targets": [
         {
@@ -375,7 +384,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "sum(rate(network_traffic_bytes[5m])) by (direction)",
+          "expr": "pg_stat_database_numbackends{datname=\"orders_db\"}",
           "refId": "A"
         }
       ]
@@ -394,8 +403,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Application Metrics",
-  "uid": "app-metrics",
+  "title": "Database Query Performance",
+  "uid": "db-metrics",
   "version": 1,
   "weekStart": ""
 }

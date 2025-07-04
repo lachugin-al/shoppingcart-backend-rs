@@ -16,6 +16,7 @@ use axum::{
     Router,
 };
 use cache::OrderCache;
+use deadpool_postgres::Pool;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tracing::{error, info, warn};
@@ -29,6 +30,7 @@ pub struct Server {
     static_dir: String,
     port: String,
     metrics: Arc<Metrics>,
+    db_pool: Pool,
 }
 
 /// Metrics collects and exposes HTTP server metrics.
@@ -127,7 +129,7 @@ impl Server {
     /// # Returns
     ///
     /// A new Server instance
-    pub fn new(port: String, cache: Arc<OrderCache>, static_dir: String) -> Self {
+    pub fn new(port: String, cache: Arc<OrderCache>, static_dir: String, db_pool: Pool) -> Self {
         info!("Initializing HTTP server on port {}", port);
 
         Self {
@@ -135,6 +137,7 @@ impl Server {
             static_dir,
             port,
             metrics: Arc::new(Metrics::new()),
+            db_pool,
         }
     }
 
@@ -146,11 +149,14 @@ impl Server {
     pub async fn start(&self) -> Result<()> {
         let app = self.create_router();
 
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.port))
-            .await
-            .context("Failed to bind to port")?;
+        // Use the port from the configuration
+        let port = &self.port;
+        let listener_result = TcpListener::bind(format!("0.0.0.0:{}", port)).await;
 
-        info!("HTTP server listening on port {}", self.port);
+        // If binding fails, return an error
+        let listener = listener_result.context(format!("Failed to bind to port {}", port))?;
+
+        info!("HTTP server listening on port {}", port);
 
         axum::serve(listener, app)
             .with_graceful_shutdown(shutdown_signal())
@@ -165,6 +171,7 @@ impl Server {
         let metrics = self.metrics.clone();
         let cache = self.cache.clone();
         let static_dir = self.static_dir.clone();
+        let db_pool = self.db_pool.clone();
 
         Router::new()
             .route("/order/{id}", get(Self::handle_get_order_by_id))
@@ -181,6 +188,7 @@ impl Server {
                 cache,
                 static_dir,
                 metrics,
+                db_pool,
             })
     }
 
@@ -370,6 +378,8 @@ struct AppState {
     cache: Arc<OrderCache>,
     static_dir: String,
     metrics: Arc<Metrics>,
+    #[allow(dead_code)]
+    db_pool: Pool,
 }
 
 /// Waits for a shutdown signal (Ctrl+C)
@@ -402,12 +412,25 @@ async fn shutdown_signal() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use model::Order;
+    use deadpool_postgres::tokio_postgres;
 
     // Helper function to create a test server
     fn create_test_server() -> Server {
         let cache = Arc::new(OrderCache::new());
-        Server::new("8080".to_string(), cache, "static".to_string())
+
+        // For tests, we create a mock database pool that won't be used
+        // In a real test, you would use a test database or mock the database
+        let mut mock_config = deadpool_postgres::Config::new();
+        mock_config.dbname = Some("test_db".to_string());
+        mock_config.user = Some("test_user".to_string());
+        mock_config.password = Some("test_password".to_string());
+        mock_config.host = Some("localhost".to_string());
+        mock_config.port = Some(5432);
+
+        let mock_pool = mock_config.create_pool(None, tokio_postgres::NoTls)
+            .expect("Failed to create mock pool");
+
+        Server::new("8080".to_string(), cache, "static".to_string(), mock_pool)
     }
 
     #[test]

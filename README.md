@@ -91,7 +91,7 @@ The application follows a modular architecture with clear separation of concerns
 
 The application uses environment variables for configuration. There are two ways to set these variables:
 
-1. **Docker Compose**: The `.env` file in the project root is used by Docker Compose to configure the services. This file uses Docker service names as hostnames (e.g., `postgres`, `kafka`, `jaeger`).
+1. **Docker Compose**: The `.env` file in the project root is used by Docker Compose to configure the services. This file uses Docker service names as hostnames (e.g., `postgres`, `kafka`).
 
 2. **Local Development**: For running the application directly on your machine (not in Docker), use the `.env.local` file which configures services to use `localhost` instead of Docker service names.
 
@@ -117,8 +117,6 @@ KAFKA_BROKERS=localhost:9092  # Use 'kafka:9092' for Docker
 KAFKA_TOPIC=orders
 KAFKA_GROUP_ID=orders_group
 
-# Jaeger (tracing)
-JAEGER_AGENT_HOST=localhost  # Use 'jaeger' for Docker
 ```
 
 ## Development

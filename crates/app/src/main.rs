@@ -69,7 +69,17 @@ async fn main() -> Result<()> {
     let config = AppConfig::load().context("Failed to load configuration")?;
 
     // Initialize database
-    let _db_pool = db::init_db_pool(&config).await.context("Failed to initialize database")?;
+    let db_pool = match db::init_db_pool(&config).await {
+        Ok(pool) => {
+            info!("Database initialized successfully");
+            pool
+        },
+        Err(e) => {
+            error!("Failed to initialize database: {}", e);
+            error!("Database connection is required for application to function properly");
+            return Err(anyhow::anyhow!("Failed to initialize database"));
+        }
+    };
 
     // Initialize cache
     let order_cache = Arc::new(OrderCache::new());
@@ -83,10 +93,28 @@ async fn main() -> Result<()> {
     let mut tasks = JoinSet::new();
 
     // Start HTTP server
-    let http_server = Server::new(config.http_port.to_string(), order_cache.clone(), "static".to_string());
+    let http_port = config.http_port.to_string();
+    info!("Using HTTP port: {}", http_port);
+
+    // Try to find the static directory in multiple locations
+    let static_paths = vec!["./static", "/app/static"];
+    let mut static_dir = "./static".to_string(); // Default to current directory
+
+    for path in static_paths {
+        info!("Checking static directory: {}", path);
+        if std::path::Path::new(path).exists() {
+            static_dir = path.to_string();
+            info!("Using static directory: {}", static_dir);
+            break;
+        }
+    }
+
+    let http_server = Server::new(http_port, order_cache.clone(), static_dir, db_pool);
     tasks.spawn(async move {
         if let Err(err) = http_server.start().await {
             error!("HTTP server error: {}", err);
+            // Exit the application if the server fails to start
+            std::process::exit(1);
         }
     });
 

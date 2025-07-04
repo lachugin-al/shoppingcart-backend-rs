@@ -1471,6 +1471,8 @@ dependencies = [
  "axum",
  "cache",
  "chrono",
+ "db",
+ "deadpool-postgres",
  "kafka-producer",
  "model",
  "prometheus",

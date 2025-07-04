@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 3,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -98,7 +98,7 @@
           "sort": "none"
         }
       },
-      "title": "HTTP Requests",
+      "title": "Kafka Consumer Lag",
       "type": "timeseries",
       "targets": [
         {
@@ -106,7 +106,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "sum(rate(http_requests_total[5m])) by (endpoint)",
+          "expr": "kafka_consumergroup_lag{consumergroup=\"orders_group\",topic=\"orders\"}",
           "refId": "A"
         }
       ]
@@ -164,8 +164,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "s"
+          }
         },
         "overrides": []
       },
@@ -188,7 +187,7 @@
           "sort": "none"
         }
       },
-      "title": "HTTP Response Time",
+      "title": "Kafka Message Rate",
       "type": "timeseries",
       "targets": [
         {
@@ -196,7 +195,8 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint))",
+          "expr": "rate(kafka_topic_partition_current_offset{topic=\"orders\"}[5m])",
+          "legendFormat": "Messages/sec",
           "refId": "A"
         }
       ]
@@ -277,7 +277,7 @@
           "sort": "none"
         }
       },
-      "title": "Errors",
+      "title": "Kafka Broker Status",
       "type": "timeseries",
       "targets": [
         {
@@ -285,7 +285,8 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "sum(rate(errors_total[5m])) by (source)",
+          "expr": "kafka_brokers",
+          "legendFormat": "Online Brokers",
           "refId": "A"
         }
       ]
@@ -343,8 +344,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "bytes"
+          }
         },
         "overrides": []
       },
@@ -367,7 +367,7 @@
           "sort": "none"
         }
       },
-      "title": "Network Traffic",
+      "title": "Kafka Consumer Group Members",
       "type": "timeseries",
       "targets": [
         {
@@ -375,7 +375,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "sum(rate(network_traffic_bytes[5m])) by (direction)",
+          "expr": "kafka_consumergroup_members{consumergroup=\"orders_group\"}",
           "refId": "A"
         }
       ]
@@ -394,8 +394,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Application Metrics",
-  "uid": "app-metrics",
+  "title": "Kafka Consumer Lag",
+  "uid": "kafka-metrics",
   "version": 1,
   "weekStart": ""
 }

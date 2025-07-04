@@ -12,6 +12,11 @@ services:
       - "${DB_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -29,43 +34,20 @@ services:
       - zookeeper
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
       - "9092:9092"
-
-  app:
-    build: .
-    container_name: shoppingcart-app
-    environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      KAFKA_BROKERS: ${KAFKA_BROKERS}
-      KAFKA_TOPIC: ${KAFKA_TOPIC}
-      KAFKA_GROUP_ID: ${KAFKA_GROUP_ID}
-      HTTP_PORT: ${HTTP_PORT}
-      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT}
-      PROMETHEUS_PORT: ${PROMETHEUS_PORT}
-      GRAFANA_PORT: ${GRAFANA_PORT}
-      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
-      DATA_SOURCE_NAME: ${DATA_SOURCE_NAME}
-      POSTGRES_EXPORTER_PORT: ${POSTGRES_EXPORTER_PORT}
-      KAFKA_EXPORTER_PORT: ${KAFKA_EXPORTER_PORT}
-      JAEGER_AGENT_HOST: ${JAEGER_AGENT_HOST}
-      JAEGER_AGENT_PORT: ${JAEGER_AGENT_PORT}
-      JAEGER_COLLECTOR_PORT: ${JAEGER_COLLECTOR_PORT}
-      JAEGER_UI_PORT: ${JAEGER_UI_PORT}
-    depends_on:
-      - postgres
-      - kafka
-      - jaeger
-    ports:
-      - "${HTTP_PORT}:8081"
+      - "29092:29092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:latest
@@ -109,20 +91,22 @@ services:
     depends_on:
       - kafka
     command:
-      - "--kafka.server=kafka:9092"
+      - "--kafka.server=kafka:29092"
     ports:
       - "${KAFKA_EXPORTER_PORT}:9308"
 
-  jaeger:
-    image: jaegertracing/all-in-one:1.56
-    container_name: jaeger
-    environment:
-      COLLECTOR_ZIPKIN_HOST_PORT: "${JAEGER_COLLECTOR_PORT}"
-      JAEGER_AGENT_HOST: "${JAEGER_AGENT_HOST}"
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
     ports:
-      - "${JAEGER_AGENT_PORT}:6831/udp"
-      - "${JAEGER_COLLECTOR_PORT}:14268"
-      - "${JAEGER_UI_PORT}:16686"
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: 'kafka:29092'
+      KAFKA_CLUSTERS_0_ZOOKEEPER: 'zookeeper:2181'
+
 
 volumes:
   pgdata:

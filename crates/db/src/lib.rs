@@ -36,11 +36,50 @@ pub async fn init_db_pool(cfg: &AppConfig) -> Result<Pool> {
         .build()
         .context("Failed to create database pool")?;
 
-    // Apply migrations
-    let client = pool.get().await.context("Failed to get DB connection for migrations")?;
-    run_migrations(&client, "migrations").await?;
+    // Try to get a connection with retries
+    let max_retries = 5;
+    let mut retry_count = 0;
+    let mut last_error = None;
 
-    Ok(pool)
+    while retry_count < max_retries {
+        match pool.get().await {
+            Ok(client) => {
+                // Successfully got a connection, now run migrations
+                info!("Successfully connected to database after {} retries", retry_count);
+
+                // Use relative path for migrations when running outside Docker
+                // First try the current directory, then try the Docker path
+                let migrations_paths = vec!["./migrations", "/app/migrations"];
+                let mut migrations_found = false;
+
+                for migrations_dir in migrations_paths {
+                    info!("Trying migrations directory: {}", migrations_dir);
+                    if tokio::fs::metadata(migrations_dir).await.is_ok() {
+                        info!("Using migrations directory: {}", migrations_dir);
+                        run_migrations(&client, migrations_dir).await?;
+                        migrations_found = true;
+                        break;
+                    }
+                }
+
+                if !migrations_found {
+                    info!("No migrations directory found. Skipping migrations.");
+                }
+                return Ok(pool);
+            },
+            Err(e) => {
+                retry_count += 1;
+                last_error = Some(e);
+                info!("Failed to connect to database (attempt {}/{}), retrying in 1 second...", 
+                      retry_count, max_retries);
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+    }
+
+    // If we get here, all retries failed
+    Err(anyhow::anyhow!("Failed to get DB connection after {} retries: {:?}", 
+                        max_retries, last_error.unwrap()))
 }
 
 /// Applies all SQL migrations from the given directory to the provided database client.
