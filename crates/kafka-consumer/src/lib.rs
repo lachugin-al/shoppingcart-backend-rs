@@ -95,14 +95,18 @@ impl<S: OrderService + Send + Sync + 'static> KafkaConsumer<S> {
         };
 
         // Save to DB via OrderService
-        if let Err(e) = self.order_service.save_order(&order).await {
-            error!("Failed to save order to DB: {e}");
-            return Ok(()); // Log and skip
+        match self.order_service.save_order(&order).await {
+            Ok(()) => {
+                // Only cache the order if it was successfully saved to the database
+                self.order_cache.set(order).await;
+                info!("Order processed and cached: {}", msg.offset());
+            },
+            Err(e) => {
+                error!("Failed to save order to DB: {e}");
+                // Skip caching if DB save failed
+            }
         }
 
-        // Cache the order (cloned)
-        self.order_cache.set(order).await;
-        info!("Order processed and cached: {}", msg.offset());
         Ok(())
     }
 

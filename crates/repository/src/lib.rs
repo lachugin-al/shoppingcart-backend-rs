@@ -39,7 +39,7 @@ pub enum RepositoryError {
 pub trait DeliveriesRepository: Send + Sync {
     /// Insert a delivery record (outside of transaction).
     async fn insert(&self, delivery: &Delivery, order_uid: &str) -> Result<(), RepositoryError>;
-    
+
     /// Insert a delivery record in a transaction.
     async fn insert_tx(&self, tx: &Transaction<'_>, delivery: &Delivery, order_uid: &str) -> Result<(), RepositoryError>;
 
@@ -263,7 +263,7 @@ impl OrdersRepository for PgOrdersRepository {
             &order.delivery_service,
             &order.shardkey,
             &order.sm_id,
-            &order.date_created.naive_utc(),
+            &order.date_created,
             &order.oof_shard,
         ]).await?;
         Ok(())
@@ -286,7 +286,7 @@ impl OrdersRepository for PgOrdersRepository {
             &order.delivery_service,
             &order.shardkey,
             &order.sm_id,
-            &order.date_created.naive_utc(),
+            &order.date_created,
             &order.oof_shard,
         ]).await?;
         Ok(())

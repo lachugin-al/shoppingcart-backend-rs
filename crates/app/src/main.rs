@@ -26,11 +26,18 @@ use tokio::signal;
 use tokio::task::JoinSet;
 use anyhow::{Context, Result};
 use tracing::{info, error};
+use async_trait::async_trait;
 
 use app_config::AppConfig;
 use cache::OrderCache;
 use db;
 use server::Server;
+use kafka_consumer::KafkaConsumer;
+use service::{OrderService, ServiceError, OrderServiceImpl};
+use model::Order;
+use deadpool_postgres::Pool;
+use repository::{PgOrdersRepository, PgDeliveriesRepository, PgPaymentsRepository, PgItemsRepository};
+use tokio_postgres::{NoTls, Client, Config as PgConfig};
 
 /// Initialize the tracing subscriber for logging
 fn init_logger() -> Result<()> {
@@ -84,10 +91,106 @@ async fn main() -> Result<()> {
     // Initialize cache
     let order_cache = Arc::new(OrderCache::new());
 
-    // Note: We're skipping loading data from DB and initializing repositories and services
-    // due to issues with getting a tokio_postgres::Client from a deadpool_postgres::Object.
-    // This is a temporary solution to get the application running.
-    info!("Skipping cache loading from DB due to client access issues");
+    // Get a connection to initialize repositories
+    // We need to create separate connections for each repository
+    // because tokio_postgres::Client doesn't implement Clone
+    let dsn = format!(
+        "host={} port={} user={} password={} dbname={} sslmode=disable",
+        config.db_host, config.db_port, config.db_user, config.db_password, config.db_name
+    );
+
+    // Create clients for each repository
+    // Orders repository
+    let (orders_client, orders_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
+        Ok((client, connection)) => {
+            info!("Successfully connected to database for orders repository");
+            (client, connection)
+        },
+        Err(e) => {
+            error!("Failed to connect to database for orders repository: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database for orders repository"));
+        }
+    };
+    tokio::spawn(async move {
+        if let Err(e) = orders_connection.await {
+            error!("Orders connection error: {}", e);
+        }
+    });
+
+    // Deliveries repository
+    let (deliveries_client, deliveries_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
+        Ok((client, connection)) => {
+            info!("Successfully connected to database for deliveries repository");
+            (client, connection)
+        },
+        Err(e) => {
+            error!("Failed to connect to database for deliveries repository: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database for deliveries repository"));
+        }
+    };
+    tokio::spawn(async move {
+        if let Err(e) = deliveries_connection.await {
+            error!("Deliveries connection error: {}", e);
+        }
+    });
+
+    // Payments repository
+    let (payments_client, payments_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
+        Ok((client, connection)) => {
+            info!("Successfully connected to database for payments repository");
+            (client, connection)
+        },
+        Err(e) => {
+            error!("Failed to connect to database for payments repository: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database for payments repository"));
+        }
+    };
+    tokio::spawn(async move {
+        if let Err(e) = payments_connection.await {
+            error!("Payments connection error: {}", e);
+        }
+    });
+
+    // Items repository
+    let (items_client, items_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
+        Ok((client, connection)) => {
+            info!("Successfully connected to database for items repository");
+            (client, connection)
+        },
+        Err(e) => {
+            error!("Failed to connect to database for items repository: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database for items repository"));
+        }
+    };
+    tokio::spawn(async move {
+        if let Err(e) = items_connection.await {
+            error!("Items connection error: {}", e);
+        }
+    });
+
+    // Initialize repositories
+    let orders_repo = PgOrdersRepository::new(orders_client);
+    let deliveries_repo = PgDeliveriesRepository::new(deliveries_client);
+    let payments_repo = PgPaymentsRepository::new(payments_client);
+    let items_repo = PgItemsRepository::new(items_client);
+
+    // Initialize order service
+    let order_service = Arc::new(OrderServiceImpl::new(
+        db_pool.clone(),
+        orders_repo,
+        deliveries_repo,
+        payments_repo,
+        items_repo,
+    ));
+
+    // Load cache from DB
+    info!("Skipping cache loading from DB");
+    // We're skipping cache loading because the repositories are moved when passed to the OrderServiceImpl
+    // and can't be borrowed later for cache loading. The cache will be populated as new orders come in.
+    // To implement cache loading, we would need to either:
+    // 1. Create new repository instances for cache loading
+    // 2. Modify OrderServiceImpl to take references to repositories instead of owning them
+    // 3. Implement a different cache loading mechanism that doesn't require repository access
 
     // Create a JoinSet to manage all our tasks
     let mut tasks = JoinSet::new();
@@ -106,6 +209,32 @@ async fn main() -> Result<()> {
             static_dir = path.to_string();
             info!("Using static directory: {}", static_dir);
             break;
+        }
+    }
+
+    // Start Kafka consumer
+    info!("Initializing Kafka consumer");
+    let kafka_shutdown = shutdown.clone();
+
+    // Initialize KafkaConsumer
+    match KafkaConsumer::new(
+        &config.kafka_brokers,
+        &config.kafka_topic,
+        &config.kafka_group_id,
+        order_service.clone(),
+        order_cache.clone(),
+    ) {
+        Ok(consumer) => {
+            // Start KafkaConsumer in a separate task
+            tasks.spawn(async move {
+                info!("Starting Kafka consumer");
+                if let Err(err) = consumer.run(kafka_shutdown).await {
+                    error!("Kafka consumer error: {}", err);
+                }
+            });
+        }
+        Err(err) => {
+            error!("Failed to initialize Kafka consumer: {}", err);
         }
     }
 

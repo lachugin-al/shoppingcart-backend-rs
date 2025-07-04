@@ -19,3 +19,4 @@ model = { path = "../model" }
 prometheus = { workspace = true }
 deadpool-postgres = { workspace = true }
 tokio-postgres = { workspace = true }
+async-trait = "0.1"
