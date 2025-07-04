@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="title">Order Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        input {
+            width: 300px;
+            padding: 5px;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 6px 12px;
+        }
+
+        #result, #order-list {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            background: #f0f0f0;
+            padding: 10px;
+        }
+
+        .pagination {
+            margin-top: 10px;
+        }
+
+        .pagination button {
+            padding: 6px 10px;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+<h1 data-i18n="header">Order Viewer</h1>
+<p data-i18n="description">Enter an <code>order_uid</code> and click "Show" to get the details.</p>
+<label for="order_id" data-i18n="label">Order ID:</label>
+<input type="text" id="order_id" placeholder="e.g. b563feb7b2b84b6test" data-i18n-placeholder="placeholder">
+<button onclick="getOrder()" data-i18n="button">Show Order</button>
+<button onclick="sendTestOrder()" data-i18n="sendTestOrderButton">Send Test Order</button>
+<button onclick="showOrders()" data-i18n="showOrdersButton">Show Orders</button>
+<pre id="result"></pre>
+<pre id="order-list"></pre>
+<script>
+    const translations = {
+        en: {
+            title: "Order Viewer",
+            header: "Order Viewer",
+            description: 'Enter an <code>order_uid</code> and click "Show" to get the details of the order id.',
+            label: "Order ID:",
+            button: "Show",
+            sendTestOrderButton: "Send Test Order",
+            showOrdersButton: "Show Orders",
+            placeholder: "e.g. b563feb7b2b84b6test",
+            noId: "Please enter a valid order_uid.",
+            fetchError: "Failed to fetch order",
+            sendTestOrderSuccess: "Test order sent successfully!",
+            sendTestOrderError: "Failed to send test order.",
+            noOrders: "No orders available.",
+        },
+        ru: {
+            title: "Просмотр заказа",
+            header: "Просмотр заказа",
+            description: 'Введите <code>order_uid</code> и нажмите "Показать", чтобы получить детали по id заказа.',
+            label: "ID заказа:",
+            button: "Показать",
+            sendTestOrderButton: "Отправить тестовый заказ",
+            showOrdersButton: "Показать заказы",
+            placeholder: "например, b563feb7b2b84b6test",
+            noId: "Пожалуйста, введите действительный order_uid.",
+            fetchError: "Не удалось получить данные заказа",
+            sendTestOrderSuccess: "Тестовый заказ успешно отправлен!",
+            sendTestOrderError: "Не удалось отправить тестовый заказ.",
+            noOrders: "Заказы недоступны.",
+        }
+    };
+
+    let currentLang = "en";
+    let orders = [];
+    let currentPage = 1;
+    const ordersPerPage = 10;
+
+    function switchLanguage(lang) {
+        currentLang = lang;
+        const elements = document.querySelectorAll("[data-i18n]");
+        elements.forEach(el => {
+            const key = el.getAttribute("data-i18n");
+            el.innerHTML = translations[lang][key];
+        });
+        const placeholders = document.querySelectorAll("[data-i18n-placeholder]");
+        placeholders.forEach(el => {
+            const key = el.getAttribute("data-i18n-placeholder");
+            el.placeholder = translations[lang][key];
+        });
+    }
+
+    function getOrder() {
+        const id = document.getElementById("order_id").value.trim();
+        if (!id) {
+            document.getElementById("result").textContent = translations[currentLang].noId;
+            return;
+        }
+        fetch("/order/" + encodeURIComponent(id))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`${translations[currentLang].fetchError}: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(err => {
+                document.getElementById("result").textContent = err.message;
+            });
+    }
+
+    async function sendTestOrder() {
+        try {
+            const response = await fetch("/api/send-test-order", {
+                method: "POST",
+            });
+            if (response.ok) {
+                document.getElementById("result").textContent = translations[currentLang].sendTestOrderSuccess;
+            } else {
+                throw new Error(translations[currentLang].sendTestOrderError);
+            }
+        } catch (error) {
+            document.getElementById("result").textContent = error.message;
+        }
+    }
+
+    function showOrders() {
+        fetch("/api/orders")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`${translations[currentLang].fetchError}: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                orders = data;
+                currentPage = 1;
+                displayOrders();
+            })
+            .catch(err => {
+                document.getElementById("order-list").textContent = err.message;
+            });
+    }
+
+    function displayOrders() {
+        if (orders.length === 0) {
+            document.getElementById("order-list").textContent = translations[currentLang].noOrders;
+            return;
+        }
+
+        const start = (currentPage - 1) * ordersPerPage;
+        const end = start + ordersPerPage;
+        const pageOrders = orders.slice(start, end);
+
+        let html = "<ul>";
+        pageOrders.forEach(order => {
+            html += `<li>Order UID: ${order.order_uid}</li>`;
+        });
+        html += "</ul>";
+
+        html += `<div class="pagination">`;
+        if (currentPage > 1) {
+            html += `<button onclick="prevPage()">Previous</button>`;
+        }
+        if (end < orders.length) {
+            html += `<button onclick="nextPage()">Next</button>`;
+        }
+        html += `</div>`;
+
+        document.getElementById("order-list").innerHTML = html;
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            displayOrders();
+        }
+    }
+
+    function nextPage() {
+        if ((currentPage * ordersPerPage) < orders.length) {
+            currentPage++;
+            displayOrders();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => switchLanguage("ru"));
+</script>
+</body>
+</html>

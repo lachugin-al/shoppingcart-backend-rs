@@ -2,3 +2,20 @@
 name = "app"
 version = "0.1.0"
 edition = "2024"
+
+[dependencies]
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+app_config = { workspace = true }
+db = { path = "../db" }
+cache = { path = "../cache" }
+repository = { path = "../repository" }
+service = { path = "../service" }
+kafka-consumer = { path = "../kafka-consumer" }
+server = { path = "../server" }
+model = { path = "../model" }
+prometheus = { workspace = true }
+deadpool-postgres = { workspace = true }
+tokio-postgres = { workspace = true }
