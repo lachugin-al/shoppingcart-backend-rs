@@ -93,6 +93,14 @@ impl OrderCache {
         let mut map = self.inner.write().await;
         map.insert(order.order_uid.clone(), order);
     }
+
+    /// Get all orders from the cache.
+    ///
+    /// Returns a vector of all orders in the cache.
+    pub async fn get_all(&self) -> Vec<Order> {
+        let map = self.inner.read().await;
+        map.values().cloned().collect()
+    }
 }
 
 /// Loads a fully populated [`Order`] from repositories by UID.

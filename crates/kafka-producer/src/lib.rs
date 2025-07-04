@@ -53,6 +53,7 @@ pub async fn produce_test_message() -> Result<String> {
     match producer
         .send(record, Duration::from_secs(5))
         .await
+        .map_err(|(kafka_err, owned_msg)| anyhow::anyhow!("Kafka error: {:?}, Message: {:?}", kafka_err, owned_msg))
         .context("Failed to send message to Kafka")
     {
         Ok(_) => {
