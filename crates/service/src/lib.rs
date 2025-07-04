@@ -11,13 +11,15 @@
 //! - Async-first API suitable for scalable web applications.
 //! - Well-typed error handling via [`ServiceError`].
 
+use anyhow::Result;
 use async_trait::async_trait;
 use deadpool_postgres::{Pool, PoolError};
-use model::{Order};
-use repository::{OrdersRepository, DeliveriesRepository, PaymentsRepository, ItemsRepository, RepositoryError};
+use model::Order;
+use repository::{
+    DeliveriesRepository, ItemsRepository, OrdersRepository, PaymentsRepository, RepositoryError,
+};
 use thiserror::Error;
-use tracing::{instrument};
-use anyhow::{Result};
+use tracing::instrument;
 
 /// The main error type for all operations in [`OrderService`] and [`OrderServiceImpl`].
 #[derive(Debug, Error)]
@@ -145,16 +147,24 @@ where
         self.validate_order(order)?;
 
         let mut client = self.db_pool.get().await.map_err(ServiceError::from)?;
-        let tx = client.transaction().await
+        let tx = client
+            .transaction()
+            .await
             .map_err(|e| ServiceError::Unexpected(format!("Begin transaction failed: {e}")))?;
 
-
         self.orders_repo.insert_tx(&tx, order).await?;
-        self.deliveries_repo.insert_tx(&tx, &order.delivery, &order.order_uid).await?;
-        self.payments_repo.insert_tx(&tx, &order.payment, &order.order_uid).await?;
-        self.items_repo.insert_tx(&tx, &order.items, &order.order_uid).await?;
+        self.deliveries_repo
+            .insert_tx(&tx, &order.delivery, &order.order_uid)
+            .await?;
+        self.payments_repo
+            .insert_tx(&tx, &order.payment, &order.order_uid)
+            .await?;
+        self.items_repo
+            .insert_tx(&tx, &order.items, &order.order_uid)
+            .await?;
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|e| ServiceError::Unexpected(format!("Commit failed: {e}")))?;
 
         Ok(())

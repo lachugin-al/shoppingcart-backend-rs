@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 /// Shopping Cart Backend Application
 ///
 /// This is the main entry point for the Shopping Cart Backend service.
@@ -21,23 +22,20 @@
 /// - Metrics for monitoring
 ///
 use std::sync::Arc;
-use tokio::sync::Notify;
 use tokio::signal;
+use tokio::sync::Notify;
 use tokio::task::JoinSet;
-use anyhow::{Context, Result};
-use tracing::{info, error};
-use async_trait::async_trait;
+use tracing::{error, info};
 
 use app_config::AppConfig;
 use cache::OrderCache;
-use db;
-use server::Server;
 use kafka_consumer::KafkaConsumer;
-use service::{OrderService, ServiceError, OrderServiceImpl};
-use model::Order;
-use deadpool_postgres::Pool;
-use repository::{PgOrdersRepository, PgDeliveriesRepository, PgPaymentsRepository, PgItemsRepository};
-use tokio_postgres::{NoTls, Client, Config as PgConfig};
+use repository::{
+    PgDeliveriesRepository, PgItemsRepository, PgOrdersRepository, PgPaymentsRepository,
+};
+use server::Server;
+use service::OrderServiceImpl;
+use tokio_postgres::NoTls;
 
 /// Initialize the tracing subscriber for logging
 fn init_logger() -> Result<()> {
@@ -49,7 +47,7 @@ fn init_logger() -> Result<()> {
 async fn main() -> Result<()> {
     // Initialize logger
     if let Err(err) = init_logger() {
-        eprintln!("Failed to initialize logger: {}", err);
+        eprintln!("Failed to initialize logger: {err}");
         return Err(anyhow::anyhow!("Failed to initialize logger"));
     }
 
@@ -80,7 +78,7 @@ async fn main() -> Result<()> {
         Ok(pool) => {
             info!("Database initialized successfully");
             pool
-        },
+        }
         Err(e) => {
             error!("Failed to initialize database: {}", e);
             error!("Database connection is required for application to function properly");
@@ -105,10 +103,12 @@ async fn main() -> Result<()> {
         Ok((client, connection)) => {
             info!("Successfully connected to database for orders repository");
             (client, connection)
-        },
+        }
         Err(e) => {
             error!("Failed to connect to database for orders repository: {}", e);
-            return Err(anyhow::anyhow!("Failed to connect to database for orders repository"));
+            return Err(anyhow::anyhow!(
+                "Failed to connect to database for orders repository"
+            ));
         }
     };
     tokio::spawn(async move {
@@ -118,16 +118,22 @@ async fn main() -> Result<()> {
     });
 
     // Deliveries repository
-    let (deliveries_client, deliveries_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
-        Ok((client, connection)) => {
-            info!("Successfully connected to database for deliveries repository");
-            (client, connection)
-        },
-        Err(e) => {
-            error!("Failed to connect to database for deliveries repository: {}", e);
-            return Err(anyhow::anyhow!("Failed to connect to database for deliveries repository"));
-        }
-    };
+    let (deliveries_client, deliveries_connection) =
+        match tokio_postgres::connect(&dsn, NoTls).await {
+            Ok((client, connection)) => {
+                info!("Successfully connected to database for deliveries repository");
+                (client, connection)
+            }
+            Err(e) => {
+                error!(
+                    "Failed to connect to database for deliveries repository: {}",
+                    e
+                );
+                return Err(anyhow::anyhow!(
+                    "Failed to connect to database for deliveries repository"
+                ));
+            }
+        };
     tokio::spawn(async move {
         if let Err(e) = deliveries_connection.await {
             error!("Deliveries connection error: {}", e);
@@ -139,10 +145,15 @@ async fn main() -> Result<()> {
         Ok((client, connection)) => {
             info!("Successfully connected to database for payments repository");
             (client, connection)
-        },
+        }
         Err(e) => {
-            error!("Failed to connect to database for payments repository: {}", e);
-            return Err(anyhow::anyhow!("Failed to connect to database for payments repository"));
+            error!(
+                "Failed to connect to database for payments repository: {}",
+                e
+            );
+            return Err(anyhow::anyhow!(
+                "Failed to connect to database for payments repository"
+            ));
         }
     };
     tokio::spawn(async move {
@@ -156,10 +167,12 @@ async fn main() -> Result<()> {
         Ok((client, connection)) => {
             info!("Successfully connected to database for items repository");
             (client, connection)
-        },
+        }
         Err(e) => {
             error!("Failed to connect to database for items repository: {}", e);
-            return Err(anyhow::anyhow!("Failed to connect to database for items repository"));
+            return Err(anyhow::anyhow!(
+                "Failed to connect to database for items repository"
+            ));
         }
     };
     tokio::spawn(async move {
@@ -188,16 +201,22 @@ async fn main() -> Result<()> {
 
     // Create additional clients for cache loading repositories
     // Orders repository for cache
-    let (cache_orders_client, cache_orders_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
-        Ok((client, connection)) => {
-            info!("Successfully connected to database for cache orders repository");
-            (client, connection)
-        },
-        Err(e) => {
-            error!("Failed to connect to database for cache orders repository: {}", e);
-            return Err(anyhow::anyhow!("Failed to connect to database for cache orders repository"));
-        }
-    };
+    let (cache_orders_client, cache_orders_connection) =
+        match tokio_postgres::connect(&dsn, NoTls).await {
+            Ok((client, connection)) => {
+                info!("Successfully connected to database for cache orders repository");
+                (client, connection)
+            }
+            Err(e) => {
+                error!(
+                    "Failed to connect to database for cache orders repository: {}",
+                    e
+                );
+                return Err(anyhow::anyhow!(
+                    "Failed to connect to database for cache orders repository"
+                ));
+            }
+        };
     tokio::spawn(async move {
         if let Err(e) = cache_orders_connection.await {
             error!("Cache orders connection error: {}", e);
@@ -205,16 +224,22 @@ async fn main() -> Result<()> {
     });
 
     // Deliveries repository for cache
-    let (cache_deliveries_client, cache_deliveries_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
-        Ok((client, connection)) => {
-            info!("Successfully connected to database for cache deliveries repository");
-            (client, connection)
-        },
-        Err(e) => {
-            error!("Failed to connect to database for cache deliveries repository: {}", e);
-            return Err(anyhow::anyhow!("Failed to connect to database for cache deliveries repository"));
-        }
-    };
+    let (cache_deliveries_client, cache_deliveries_connection) =
+        match tokio_postgres::connect(&dsn, NoTls).await {
+            Ok((client, connection)) => {
+                info!("Successfully connected to database for cache deliveries repository");
+                (client, connection)
+            }
+            Err(e) => {
+                error!(
+                    "Failed to connect to database for cache deliveries repository: {}",
+                    e
+                );
+                return Err(anyhow::anyhow!(
+                    "Failed to connect to database for cache deliveries repository"
+                ));
+            }
+        };
     tokio::spawn(async move {
         if let Err(e) = cache_deliveries_connection.await {
             error!("Cache deliveries connection error: {}", e);
@@ -222,16 +247,22 @@ async fn main() -> Result<()> {
     });
 
     // Payments repository for cache
-    let (cache_payments_client, cache_payments_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
-        Ok((client, connection)) => {
-            info!("Successfully connected to database for cache payments repository");
-            (client, connection)
-        },
-        Err(e) => {
-            error!("Failed to connect to database for cache payments repository: {}", e);
-            return Err(anyhow::anyhow!("Failed to connect to database for cache payments repository"));
-        }
-    };
+    let (cache_payments_client, cache_payments_connection) =
+        match tokio_postgres::connect(&dsn, NoTls).await {
+            Ok((client, connection)) => {
+                info!("Successfully connected to database for cache payments repository");
+                (client, connection)
+            }
+            Err(e) => {
+                error!(
+                    "Failed to connect to database for cache payments repository: {}",
+                    e
+                );
+                return Err(anyhow::anyhow!(
+                    "Failed to connect to database for cache payments repository"
+                ));
+            }
+        };
     tokio::spawn(async move {
         if let Err(e) = cache_payments_connection.await {
             error!("Cache payments connection error: {}", e);
@@ -239,16 +270,22 @@ async fn main() -> Result<()> {
     });
 
     // Items repository for cache
-    let (cache_items_client, cache_items_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
-        Ok((client, connection)) => {
-            info!("Successfully connected to database for cache items repository");
-            (client, connection)
-        },
-        Err(e) => {
-            error!("Failed to connect to database for cache items repository: {}", e);
-            return Err(anyhow::anyhow!("Failed to connect to database for cache items repository"));
-        }
-    };
+    let (cache_items_client, cache_items_connection) =
+        match tokio_postgres::connect(&dsn, NoTls).await {
+            Ok((client, connection)) => {
+                info!("Successfully connected to database for cache items repository");
+                (client, connection)
+            }
+            Err(e) => {
+                error!(
+                    "Failed to connect to database for cache items repository: {}",
+                    e
+                );
+                return Err(anyhow::anyhow!(
+                    "Failed to connect to database for cache items repository"
+                ));
+            }
+        };
     tokio::spawn(async move {
         if let Err(e) = cache_items_connection.await {
             error!("Cache items connection error: {}", e);
@@ -263,13 +300,16 @@ async fn main() -> Result<()> {
 
     // Load cache from DB
     info!("Loading cache from database");
-    match order_cache.load_from_db(
-        &db_pool,
-        &cache_orders_repo,
-        &cache_deliveries_repo,
-        &cache_payments_repo,
-        &cache_items_repo,
-    ).await {
+    match order_cache
+        .load_from_db(
+            &db_pool,
+            &cache_orders_repo,
+            &cache_deliveries_repo,
+            &cache_payments_repo,
+            &cache_items_repo,
+        )
+        .await
+    {
         Ok(()) => info!("Cache loaded successfully from database"),
         Err(e) => error!("Failed to load cache from database: {}", e),
     }

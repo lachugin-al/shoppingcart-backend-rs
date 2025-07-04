@@ -9,7 +9,6 @@ use async_trait::async_trait;
 use model::{Delivery, Item, Order, Payment};
 use thiserror::Error;
 use tokio_postgres::{Client, Transaction};
-use chrono::{NaiveDateTime};
 
 /// # RepositoryError
 ///
@@ -41,7 +40,12 @@ pub trait DeliveriesRepository: Send + Sync {
     async fn insert(&self, delivery: &Delivery, order_uid: &str) -> Result<(), RepositoryError>;
 
     /// Insert a delivery record in a transaction.
-    async fn insert_tx(&self, tx: &Transaction<'_>, delivery: &Delivery, order_uid: &str) -> Result<(), RepositoryError>;
+    async fn insert_tx(
+        &self,
+        tx: &Transaction<'_>,
+        delivery: &Delivery,
+        order_uid: &str,
+    ) -> Result<(), RepositoryError>;
 
     /// Get delivery info by order ID.
     async fn get_by_order_id(&self, order_uid: &str) -> Result<Delivery, RepositoryError>;
@@ -69,34 +73,48 @@ impl DeliveriesRepository for PgDeliveriesRepository {
             INSERT INTO deliveries (order_uid, name, phone, zip, city, address, region, email)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         "#;
-        self.db.execute(query, &[
-            &order_uid,
-            &delivery.name,
-            &delivery.phone,
-            &delivery.zip,
-            &delivery.city,
-            &delivery.address,
-            &delivery.region,
-            &delivery.email,
-        ]).await?;
+        self.db
+            .execute(
+                query,
+                &[
+                    &order_uid,
+                    &delivery.name,
+                    &delivery.phone,
+                    &delivery.zip,
+                    &delivery.city,
+                    &delivery.address,
+                    &delivery.region,
+                    &delivery.email,
+                ],
+            )
+            .await?;
         Ok(())
     }
 
-    async fn insert_tx(&self, tx: &Transaction<'_>, delivery: &Delivery, order_uid: &str) -> Result<(), RepositoryError> {
+    async fn insert_tx(
+        &self,
+        tx: &Transaction<'_>,
+        delivery: &Delivery,
+        order_uid: &str,
+    ) -> Result<(), RepositoryError> {
         let query = r#"
             INSERT INTO deliveries (order_uid, name, phone, zip, city, address, region, email)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         "#;
-        tx.execute(query, &[
-            &order_uid,
-            &delivery.name,
-            &delivery.phone,
-            &delivery.zip,
-            &delivery.city,
-            &delivery.address,
-            &delivery.region,
-            &delivery.email,
-        ]).await?;
+        tx.execute(
+            query,
+            &[
+                &order_uid,
+                &delivery.name,
+                &delivery.phone,
+                &delivery.zip,
+                &delivery.city,
+                &delivery.address,
+                &delivery.region,
+                &delivery.email,
+            ],
+        )
+        .await?;
         Ok(())
     }
 
@@ -135,7 +153,12 @@ impl DeliveriesRepository for PgDeliveriesRepository {
 #[async_trait]
 pub trait ItemsRepository: Send + Sync {
     async fn insert(&self, items: &[Item], order_uid: &str) -> Result<(), RepositoryError>;
-    async fn insert_tx(&self, tx: &Transaction<'_>, items: &[Item], order_uid: &str) -> Result<(), RepositoryError>;
+    async fn insert_tx(
+        &self,
+        tx: &Transaction<'_>,
+        items: &[Item],
+        order_uid: &str,
+    ) -> Result<(), RepositoryError>;
     async fn get_by_order_id(&self, order_uid: &str) -> Result<Vec<Item>, RepositoryError>;
 }
 
@@ -162,24 +185,58 @@ impl ItemsRepository for PgItemsRepository {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         "#;
         for it in items {
-            self.db.execute(query, &[
-                &order_uid, &it.chrt_id, &it.track_number, &it.price, &it.rid,
-                &it.name, &it.sale, &it.size, &it.total_price, &it.nm_id, &it.brand, &it.status,
-            ]).await?;
+            self.db
+                .execute(
+                    query,
+                    &[
+                        &order_uid,
+                        &it.chrt_id,
+                        &it.track_number,
+                        &it.price,
+                        &it.rid,
+                        &it.name,
+                        &it.sale,
+                        &it.size,
+                        &it.total_price,
+                        &it.nm_id,
+                        &it.brand,
+                        &it.status,
+                    ],
+                )
+                .await?;
         }
         Ok(())
     }
 
-    async fn insert_tx(&self, tx: &Transaction<'_>, items: &[Item], order_uid: &str) -> Result<(), RepositoryError> {
+    async fn insert_tx(
+        &self,
+        tx: &Transaction<'_>,
+        items: &[Item],
+        order_uid: &str,
+    ) -> Result<(), RepositoryError> {
         let query = r#"
             INSERT INTO items (order_uid, chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         "#;
         for it in items {
-            tx.execute(query, &[
-                &order_uid, &it.chrt_id, &it.track_number, &it.price, &it.rid,
-                &it.name, &it.sale, &it.size, &it.total_price, &it.nm_id, &it.brand, &it.status,
-            ]).await?;
+            tx.execute(
+                query,
+                &[
+                    &order_uid,
+                    &it.chrt_id,
+                    &it.track_number,
+                    &it.price,
+                    &it.rid,
+                    &it.name,
+                    &it.sale,
+                    &it.size,
+                    &it.total_price,
+                    &it.nm_id,
+                    &it.brand,
+                    &it.status,
+                ],
+            )
+            .await?;
         }
         Ok(())
     }
@@ -253,19 +310,24 @@ impl OrdersRepository for PgOrdersRepository {
                 customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         "#;
-        self.db.execute(query, &[
-            &order.order_uid,
-            &order.track_number,
-            &order.entry,
-            &order.locale,
-            &order.internal_signature,
-            &order.customer_id,
-            &order.delivery_service,
-            &order.shardkey,
-            &order.sm_id,
-            &order.date_created,
-            &order.oof_shard,
-        ]).await?;
+        self.db
+            .execute(
+                query,
+                &[
+                    &order.order_uid,
+                    &order.track_number,
+                    &order.entry,
+                    &order.locale,
+                    &order.internal_signature,
+                    &order.customer_id,
+                    &order.delivery_service,
+                    &order.shardkey,
+                    &order.sm_id,
+                    &order.date_created,
+                    &order.oof_shard,
+                ],
+            )
+            .await?;
         Ok(())
     }
 
@@ -276,19 +338,23 @@ impl OrdersRepository for PgOrdersRepository {
                 customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         "#;
-        tx.execute(query, &[
-            &order.order_uid,
-            &order.track_number,
-            &order.entry,
-            &order.locale,
-            &order.internal_signature,
-            &order.customer_id,
-            &order.delivery_service,
-            &order.shardkey,
-            &order.sm_id,
-            &order.date_created,
-            &order.oof_shard,
-        ]).await?;
+        tx.execute(
+            query,
+            &[
+                &order.order_uid,
+                &order.track_number,
+                &order.entry,
+                &order.locale,
+                &order.internal_signature,
+                &order.customer_id,
+                &order.delivery_service,
+                &order.shardkey,
+                &order.sm_id,
+                &order.date_created,
+                &order.oof_shard,
+            ],
+        )
+        .await?;
         Ok(())
     }
 
@@ -337,7 +403,12 @@ impl OrdersRepository for PgOrdersRepository {
 #[async_trait]
 pub trait PaymentsRepository: Send + Sync {
     async fn insert(&self, payment: &Payment, order_uid: &str) -> Result<(), RepositoryError>;
-    async fn insert_tx(&self, tx: &Transaction<'_>, payment: &Payment, order_uid: &str) -> Result<(), RepositoryError>;
+    async fn insert_tx(
+        &self,
+        tx: &Transaction<'_>,
+        payment: &Payment,
+        order_uid: &str,
+    ) -> Result<(), RepositoryError>;
     async fn get_by_order_id(&self, order_uid: &str) -> Result<Payment, RepositoryError>;
 }
 
@@ -366,42 +437,56 @@ impl PaymentsRepository for PgPaymentsRepository {
                 bank, delivery_cost, goods_total, custom_fee
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         "#;
-        self.db.execute(query, &[
-            &order_uid,
-            &payment.transaction,
-            &payment.request_id,
-            &payment.currency,
-            &payment.provider,
-            &payment.amount,
-            &payment.payment_dt,
-            &payment.bank,
-            &payment.delivery_cost,
-            &payment.goods_total,
-            &payment.custom_fee,
-        ]).await?;
+        self.db
+            .execute(
+                query,
+                &[
+                    &order_uid,
+                    &payment.transaction,
+                    &payment.request_id,
+                    &payment.currency,
+                    &payment.provider,
+                    &payment.amount,
+                    &payment.payment_dt,
+                    &payment.bank,
+                    &payment.delivery_cost,
+                    &payment.goods_total,
+                    &payment.custom_fee,
+                ],
+            )
+            .await?;
         Ok(())
     }
 
-    async fn insert_tx(&self, tx: &Transaction<'_>, payment: &Payment, order_uid: &str) -> Result<(), RepositoryError> {
+    async fn insert_tx(
+        &self,
+        tx: &Transaction<'_>,
+        payment: &Payment,
+        order_uid: &str,
+    ) -> Result<(), RepositoryError> {
         let query = r#"
             INSERT INTO payments (
                 order_uid, transaction, request_id, currency, provider, amount, payment_dt,
                 bank, delivery_cost, goods_total, custom_fee
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         "#;
-        tx.execute(query, &[
-            &order_uid,
-            &payment.transaction,
-            &payment.request_id,
-            &payment.currency,
-            &payment.provider,
-            &payment.amount,
-            &payment.payment_dt,
-            &payment.bank,
-            &payment.delivery_cost,
-            &payment.goods_total,
-            &payment.custom_fee,
-        ]).await?;
+        tx.execute(
+            query,
+            &[
+                &order_uid,
+                &payment.transaction,
+                &payment.request_id,
+                &payment.currency,
+                &payment.provider,
+                &payment.amount,
+                &payment.payment_dt,
+                &payment.bank,
+                &payment.delivery_cost,
+                &payment.goods_total,
+                &payment.custom_fee,
+            ],
+        )
+        .await?;
         Ok(())
     }
 

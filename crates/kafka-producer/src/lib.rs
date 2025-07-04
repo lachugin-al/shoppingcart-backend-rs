@@ -8,12 +8,12 @@ use app_config::AppConfig;
 use chrono::Utc;
 use fake::{Fake, Faker};
 use model::{Delivery, Item, Order, Payment};
-use rdkafka::producer::{FutureProducer, FutureRecord};
+use rand::seq::SliceRandom;
 use rdkafka::ClientConfig;
+use rdkafka::producer::{FutureProducer, FutureRecord};
 use std::time::{Duration, SystemTime};
 use tracing::{error, info};
 use uuid::Uuid;
-use rand::seq::SliceRandom;
 
 /// Generates a test order message, serializes it to JSON, and sends it to Kafka.
 ///
@@ -28,7 +28,7 @@ pub async fn produce_test_message() -> Result<String> {
 
     // Create Kafka producer
     let producer: FutureProducer = ClientConfig::new()
-        .set("bootstrap.servers", &config.kafka_brokers.join(","))
+        .set("bootstrap.servers", config.kafka_brokers.join(","))
         .set("message.timeout.ms", "5000")
         .create()
         .context("Failed to create Kafka producer")?;
@@ -53,7 +53,9 @@ pub async fn produce_test_message() -> Result<String> {
     match producer
         .send(record, Duration::from_secs(5))
         .await
-        .map_err(|(kafka_err, owned_msg)| anyhow::anyhow!("Kafka error: {:?}, Message: {:?}", kafka_err, owned_msg))
+        .map_err(|(kafka_err, owned_msg)| {
+            anyhow::anyhow!("Kafka error: {:?}, Message: {:?}", kafka_err, owned_msg)
+        })
         .context("Failed to send message to Kafka")
     {
         Ok(_) => {
@@ -91,7 +93,10 @@ fn generate_order() -> Order {
     let payment = Payment {
         transaction: Uuid::new_v4().to_string(),
         request_id: Uuid::new_v4().to_string(),
-        currency: ["USD", "EUR", "GBP", "JPY"].choose(&mut rand::thread_rng()).unwrap().to_string(),
+        currency: ["USD", "EUR", "GBP", "JPY"]
+            .choose(&mut rand::thread_rng())
+            .unwrap()
+            .to_string(),
         provider: Faker.fake::<String>(),
         amount: (100..10000).fake(),
         payment_dt: SystemTime::now()
@@ -116,7 +121,10 @@ fn generate_order() -> Order {
             rid: Uuid::new_v4().to_string(),
             name: Faker.fake::<String>(),
             sale: (0..50).fake(),
-            size: ["XS", "S", "M", "L", "XL"].choose(&mut rand::thread_rng()).unwrap().to_string(),
+            size: ["XS", "S", "M", "L", "XL"]
+                .choose(&mut rand::thread_rng())
+                .unwrap()
+                .to_string(),
             total_price: (100..2000).fake(),
             nm_id: (100000..999999).fake(),
             brand: Faker.fake::<String>(),
@@ -131,7 +139,10 @@ fn generate_order() -> Order {
         delivery,
         payment,
         items,
-        locale: ["en", "ru", "de", "fr"].choose(&mut rand::thread_rng()).unwrap().to_string(),
+        locale: ["en", "ru", "de", "fr"]
+            .choose(&mut rand::thread_rng())
+            .unwrap()
+            .to_string(),
         internal_signature: Uuid::new_v4().to_string(),
         customer_id: Uuid::new_v4().to_string(),
         delivery_service: Faker.fake::<String>(),

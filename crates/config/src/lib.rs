@@ -1,6 +1,6 @@
+use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::time::Duration;
-use anyhow::{Result, Context};
 
 /// `AppConfig` holds all configuration parameters required by the application.
 ///
@@ -10,7 +10,6 @@ use anyhow::{Result, Context};
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct AppConfig {
     // --- Database settings ---
-
     /// Database hostname or service name (e.g. "postgres" in Docker Compose, "localhost" for local runs).
     pub db_host: String,
     /// Database port (default: 5432).
@@ -23,7 +22,6 @@ pub struct AppConfig {
     pub db_name: String,
 
     // --- Kafka settings ---
-
     /// List of Kafka brokers (comma-separated string in env, parsed to Vec<String>).
     pub kafka_brokers: Vec<String>,
     /// Kafka topic for processing orders.
@@ -32,42 +30,35 @@ pub struct AppConfig {
     pub kafka_group_id: String,
 
     // --- HTTP server ---
-
     /// The port on which the HTTP server will listen.
     pub http_port: u16,
 
     // --- Shutdown timeout ---
-
     /// Graceful shutdown timeout (human-friendly format, e.g. "5s", "1m").
     #[serde(deserialize_with = "deserialize_duration_secs")]
     pub shutdown_timeout: Duration,
 
     // --- Grafana ---
-
     /// Initial admin password for Grafana UI.
     pub gf_security_admin_password: String,
     /// Exposed port for Grafana dashboard.
     pub grafana_port: u16,
 
     // --- Prometheus ---
-
     /// Exposed port for Prometheus UI.
     pub prometheus_port: u16,
     /// Path to Prometheus configuration file inside the container.
     pub prometheus_config_path: String,
 
     // --- Postgres exporter ---
-
     /// Connection string for Postgres exporter (DSN).
     pub data_source_name: String,
     /// Exposed port for Postgres exporter metrics endpoint.
     pub postgres_exporter_port: u16,
 
     // --- Kafka exporter ---
-
     /// Exposed port for Kafka exporter metrics endpoint.
     pub kafka_exporter_port: u16,
-
 }
 
 /// Custom deserializer for graceful shutdown timeout.
@@ -79,7 +70,7 @@ where
     use serde::de::Error;
     let val = String::deserialize(deserializer)?;
     humantime::parse_duration(&val)
-        .map_err(|e| D::Error::custom(format!("Invalid duration '{}': {}", val, e)))
+        .map_err(|e| D::Error::custom(format!("Invalid duration '{val}': {e}")))
 }
 
 impl AppConfig {
@@ -128,6 +119,8 @@ impl AppConfig {
             .add_source(config::Environment::default().separator("_"))
             .build()?;
 
-        settings.try_deserialize().context("Failed to load configuration")
+        settings
+            .try_deserialize()
+            .context("Failed to load configuration")
     }
 }

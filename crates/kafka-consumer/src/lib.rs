@@ -3,18 +3,18 @@
 //! Reads JSON-encoded order messages from a Kafka topic, saves them to the DB
 //! using `OrderService`, and updates the in-memory cache.
 
-use std::sync::Arc;
-use rdkafka::consumer::{Consumer, StreamConsumer};
-use rdkafka::message::{BorrowedMessage, Message};
-use rdkafka::config::ClientConfig;
-use rdkafka::error::KafkaError;
-use model::Order;
-use service::OrderService;
-use cache::OrderCache;
-use serde_json::from_slice;
-use tracing::{info, error, debug};
 use anyhow::Result;
+use cache::OrderCache;
+use model::Order;
+use rdkafka::config::ClientConfig;
+use rdkafka::consumer::{Consumer, StreamConsumer};
+use rdkafka::error::KafkaError;
+use rdkafka::message::{BorrowedMessage, Message};
+use serde_json::from_slice;
+use service::OrderService;
+use std::sync::Arc;
 use tokio_stream::StreamExt;
+use tracing::{debug, error, info};
 
 /// KafkaConsumer wraps the underlying StreamConsumer and business dependencies.
 pub struct KafkaConsumer<S: OrderService + Send + Sync + 'static> {
@@ -33,7 +33,7 @@ impl<S: OrderService + Send + Sync + 'static> KafkaConsumer<S> {
         order_cache: Arc<OrderCache>,
     ) -> Result<Self, KafkaError> {
         let consumer: StreamConsumer = ClientConfig::new()
-            .set("bootstrap.servers", &brokers.join(","))
+            .set("bootstrap.servers", brokers.join(","))
             .set("group.id", group_id)
             .set("enable.partition.eof", "false")
             .set("auto.offset.reset", "earliest")
@@ -84,7 +84,9 @@ impl<S: OrderService + Send + Sync + 'static> KafkaConsumer<S> {
 
     /// Handles a single message from Kafka: parses JSON, saves to DB, and caches.
     async fn handle_message(&self, msg: &BorrowedMessage<'_>) -> Result<()> {
-        let payload = msg.payload().ok_or_else(|| anyhow::anyhow!("Empty Kafka message payload"))?;
+        let payload = msg
+            .payload()
+            .ok_or_else(|| anyhow::anyhow!("Empty Kafka message payload"))?;
 
         let order: Order = match from_slice(payload) {
             Ok(order) => order,
@@ -100,7 +102,7 @@ impl<S: OrderService + Send + Sync + 'static> KafkaConsumer<S> {
                 // Only cache the order if it was successfully saved to the database
                 self.order_cache.set(order).await;
                 info!("Order processed and cached: {}", msg.offset());
-            },
+            }
             Err(e) => {
                 error!("Failed to save order to DB: {e}");
                 // Skip caching if DB save failed

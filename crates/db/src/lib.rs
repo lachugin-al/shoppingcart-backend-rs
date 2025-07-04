@@ -3,12 +3,12 @@
 //! Provides `init_db_pool` for creating a connection pool and
 //! auto-applying SQL migrations from the migrations directory.
 
-use anyhow::{Result, Context};
-use deadpool_postgres::{Pool, Manager, ManagerConfig, RecyclingMethod, Runtime};
-use tokio_postgres::{NoTls, Config as PgConfig, Client};
-use tokio::fs;
-use tracing::info;
+use anyhow::{Context, Result};
 use app_config::AppConfig;
+use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod, Runtime};
+use tokio::fs;
+use tokio_postgres::{Client, Config as PgConfig, NoTls};
+use tracing::info;
 
 /// Initializes the database connection pool and runs migrations.
 ///
@@ -26,10 +26,15 @@ pub async fn init_db_pool(cfg: &AppConfig) -> Result<Pool> {
         cfg.db_host, cfg.db_port, cfg.db_user, cfg.db_password, cfg.db_name
     );
 
-    let pg_config: PgConfig = dsn.parse()
-        .context("Failed to parse Postgres DSN")?;
+    let pg_config: PgConfig = dsn.parse().context("Failed to parse Postgres DSN")?;
 
-    let mgr = Manager::from_config(pg_config, NoTls, ManagerConfig { recycling_method: RecyclingMethod::Fast });
+    let mgr = Manager::from_config(
+        pg_config,
+        NoTls,
+        ManagerConfig {
+            recycling_method: RecyclingMethod::Fast,
+        },
+    );
     let pool = Pool::builder(mgr)
         .max_size(16)
         .runtime(Runtime::Tokio1)
@@ -45,7 +50,10 @@ pub async fn init_db_pool(cfg: &AppConfig) -> Result<Pool> {
         match pool.get().await {
             Ok(client) => {
                 // Successfully got a connection, now run migrations
-                info!("Successfully connected to database after {} retries", retry_count);
+                info!(
+                    "Successfully connected to database after {} retries",
+                    retry_count
+                );
 
                 // Use relative path for migrations when running outside Docker
                 // First try the current directory, then try the Docker path
@@ -66,20 +74,25 @@ pub async fn init_db_pool(cfg: &AppConfig) -> Result<Pool> {
                     info!("No migrations directory found. Skipping migrations.");
                 }
                 return Ok(pool);
-            },
+            }
             Err(e) => {
                 retry_count += 1;
                 last_error = Some(e);
-                info!("Failed to connect to database (attempt {}/{}), retrying in 1 second...", 
-                      retry_count, max_retries);
+                info!(
+                    "Failed to connect to database (attempt {}/{}), retrying in 1 second...",
+                    retry_count, max_retries
+                );
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         }
     }
 
     // If we get here, all retries failed
-    Err(anyhow::anyhow!("Failed to get DB connection after {} retries: {:?}", 
-                        max_retries, last_error.unwrap()))
+    Err(anyhow::anyhow!(
+        "Failed to get DB connection after {} retries: {:?}",
+        max_retries,
+        last_error.unwrap()
+    ))
 }
 
 /// Applies all SQL migrations from the given directory to the provided database client.
@@ -91,7 +104,8 @@ pub async fn init_db_pool(cfg: &AppConfig) -> Result<Pool> {
 /// # Errors
 /// Returns an error if migration files cannot be read or applied.
 pub async fn run_migrations(client: &Client, migrations_dir: &str) -> Result<()> {
-    let mut entries = fs::read_dir(migrations_dir).await
+    let mut entries = fs::read_dir(migrations_dir)
+        .await
         .context("Failed to read migrations directory")?;
 
     while let Some(entry) = entries.next_entry().await? {
@@ -100,12 +114,14 @@ pub async fn run_migrations(client: &Client, migrations_dir: &str) -> Result<()>
             if ext == "sql" {
                 let file_name = path.file_name().unwrap().to_string_lossy();
                 info!("Applying migration: {}", file_name);
-                let content = fs::read_to_string(&path).await
-                    .with_context(|| format!("Failed to read migration file {}", file_name))?;
-
-                client.batch_execute(&content)
+                let content = fs::read_to_string(&path)
                     .await
-                    .with_context(|| format!("Failed to execute migration {}", file_name))?;
+                    .with_context(|| format!("Failed to read migration file {file_name}"))?;
+
+                client
+                    .batch_execute(&content)
+                    .await
+                    .with_context(|| format!("Failed to execute migration {file_name}"))?;
             }
         }
     }

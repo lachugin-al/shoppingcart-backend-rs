@@ -9,13 +9,13 @@
 //! - Integration with repositories for population from DB
 //! - Unit tests for correctness and concurrency
 
+use anyhow::Result;
+use deadpool_postgres::{Object as DbConn, Pool};
+use model::Order;
+use repository::{DeliveriesRepository, ItemsRepository, OrdersRepository, PaymentsRepository};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use model::Order;
-use repository::{OrdersRepository, DeliveriesRepository, PaymentsRepository, ItemsRepository};
-use anyhow::Result;
-use deadpool_postgres::{Pool, Object as DbConn};
 
 /// Thread-safe, in-memory cache for orders, keyed by order UID.
 ///
@@ -70,7 +70,7 @@ impl OrderCache {
                 payments_repo,
                 items_repo,
             )
-                .await
+            .await
             {
                 self.set(order).await;
             }
@@ -141,7 +141,7 @@ async fn get_all_order_uids(conn: &DbConn) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use model::{Order, Delivery, Payment, Item};
+    use model::{Delivery, Item, Order, Payment};
 
     fn sample_order(uid: &str) -> Order {
         Order {
@@ -169,21 +169,19 @@ mod tests {
                 goods_total: 100,
                 custom_fee: 0,
             },
-            items: vec![
-                Item {
-                    chrt_id: 1,
-                    track_number: "track123".to_string(),
-                    price: 100,
-                    rid: "rid1".to_string(),
-                    name: "Item1".to_string(),
-                    sale: 0,
-                    size: "L".to_string(),
-                    total_price: 100,
-                    nm_id: 123,
-                    brand: "brand".to_string(),
-                    status: 1,
-                }
-            ],
+            items: vec![Item {
+                chrt_id: 1,
+                track_number: "track123".to_string(),
+                price: 100,
+                rid: "rid1".to_string(),
+                name: "Item1".to_string(),
+                sale: 0,
+                size: "L".to_string(),
+                total_price: 100,
+                nm_id: 123,
+                brand: "brand".to_string(),
+                status: 1,
+            }],
             locale: "en".to_string(),
             internal_signature: "".to_string(),
             customer_id: "cust1".to_string(),

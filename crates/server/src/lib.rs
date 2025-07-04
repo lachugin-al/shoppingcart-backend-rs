@@ -9,20 +9,18 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use axum::{
+    Router,
     extract::{Path as AxumPath, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
-    Router,
 };
 use cache::OrderCache;
 use deadpool_postgres::Pool;
+use prometheus::{CounterVec, HistogramOpts, HistogramVec, Opts, Registry};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tracing::{error, info, warn};
-use prometheus::{
-    CounterVec, HistogramOpts, HistogramVec, Opts, Registry,
-};
 
 /// Server represents an HTTP server for working with orders.
 pub struct Server {
@@ -151,10 +149,10 @@ impl Server {
 
         // Use the port from the configuration
         let port = &self.port;
-        let listener_result = TcpListener::bind(format!("0.0.0.0:{}", port)).await;
+        let listener_result = TcpListener::bind(format!("0.0.0.0:{port}")).await;
 
         // If binding fails, return an error
-        let listener = listener_result.context(format!("Failed to bind to port {}", port))?;
+        let listener = listener_result.context(format!("Failed to bind to port {port}"))?;
 
         info!("HTTP server listening on port {}", port);
 
@@ -202,7 +200,8 @@ impl Server {
         let path = req.uri().path().to_string();
 
         // Estimate request size for incoming traffic metrics
-        let content_length = req.headers()
+        let content_length = req
+            .headers()
             .get(axum::http::header::CONTENT_LENGTH)
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<usize>().ok())
@@ -233,7 +232,8 @@ impl Server {
         }
 
         // Estimate response size for outgoing traffic metrics
-        let response_size = response.headers()
+        let response_size = response
+            .headers()
             .get(axum::http::header::CONTENT_LENGTH)
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<usize>().ok())
@@ -299,13 +299,11 @@ impl Server {
         info!("Received request to send test order");
 
         match kafka_producer::produce_test_message().await {
-            Ok(order_uid) => {
-                (
-                    StatusCode::OK,
-                    format!("Test order sent successfully! Order UID: {}", order_uid),
-                )
-                    .into_response()
-            }
+            Ok(order_uid) => (
+                StatusCode::OK,
+                format!("Test order sent successfully! Order UID: {order_uid}"),
+            )
+                .into_response(),
             Err(e) => {
                 error!("Failed to send test order: {}", e);
                 (
@@ -329,7 +327,11 @@ impl Server {
         let mut buffer = Vec::new();
         if let Err(e) = encoder.encode(&state.metrics.registry.gather(), &mut buffer) {
             error!("Failed to encode metrics: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to encode metrics").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to encode metrics",
+            )
+                .into_response();
         }
 
         match String::from_utf8(buffer) {
@@ -364,7 +366,11 @@ impl Server {
                     .header("Content-Type", content_type)
                     .body(content.into())
                     .unwrap_or_else(|_| {
-                        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create response").into_response()
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "Failed to create response",
+                        )
+                            .into_response()
                     })
             }
             Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
@@ -427,7 +433,8 @@ mod tests {
         mock_config.host = Some("localhost".to_string());
         mock_config.port = Some(5432);
 
-        let mock_pool = mock_config.create_pool(None, tokio_postgres::NoTls)
+        let mock_pool = mock_config
+            .create_pool(None, tokio_postgres::NoTls)
             .expect("Failed to create mock pool");
 
         Server::new("8080".to_string(), cache, "static".to_string(), mock_pool)
