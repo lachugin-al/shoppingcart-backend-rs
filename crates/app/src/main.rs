@@ -184,13 +184,95 @@ async fn main() -> Result<()> {
     ));
 
     // Load cache from DB
-    info!("Skipping cache loading from DB");
-    // We're skipping cache loading because the repositories are moved when passed to the OrderServiceImpl
-    // and can't be borrowed later for cache loading. The cache will be populated as new orders come in.
-    // To implement cache loading, we would need to either:
-    // 1. Create new repository instances for cache loading
-    // 2. Modify OrderServiceImpl to take references to repositories instead of owning them
-    // 3. Implement a different cache loading mechanism that doesn't require repository access
+    info!("Creating additional repository instances for cache loading");
+
+    // Create additional clients for cache loading repositories
+    // Orders repository for cache
+    let (cache_orders_client, cache_orders_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
+        Ok((client, connection)) => {
+            info!("Successfully connected to database for cache orders repository");
+            (client, connection)
+        },
+        Err(e) => {
+            error!("Failed to connect to database for cache orders repository: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database for cache orders repository"));
+        }
+    };
+    tokio::spawn(async move {
+        if let Err(e) = cache_orders_connection.await {
+            error!("Cache orders connection error: {}", e);
+        }
+    });
+
+    // Deliveries repository for cache
+    let (cache_deliveries_client, cache_deliveries_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
+        Ok((client, connection)) => {
+            info!("Successfully connected to database for cache deliveries repository");
+            (client, connection)
+        },
+        Err(e) => {
+            error!("Failed to connect to database for cache deliveries repository: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database for cache deliveries repository"));
+        }
+    };
+    tokio::spawn(async move {
+        if let Err(e) = cache_deliveries_connection.await {
+            error!("Cache deliveries connection error: {}", e);
+        }
+    });
+
+    // Payments repository for cache
+    let (cache_payments_client, cache_payments_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
+        Ok((client, connection)) => {
+            info!("Successfully connected to database for cache payments repository");
+            (client, connection)
+        },
+        Err(e) => {
+            error!("Failed to connect to database for cache payments repository: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database for cache payments repository"));
+        }
+    };
+    tokio::spawn(async move {
+        if let Err(e) = cache_payments_connection.await {
+            error!("Cache payments connection error: {}", e);
+        }
+    });
+
+    // Items repository for cache
+    let (cache_items_client, cache_items_connection) = match tokio_postgres::connect(&dsn, NoTls).await {
+        Ok((client, connection)) => {
+            info!("Successfully connected to database for cache items repository");
+            (client, connection)
+        },
+        Err(e) => {
+            error!("Failed to connect to database for cache items repository: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database for cache items repository"));
+        }
+    };
+    tokio::spawn(async move {
+        if let Err(e) = cache_items_connection.await {
+            error!("Cache items connection error: {}", e);
+        }
+    });
+
+    // Initialize cache repositories
+    let cache_orders_repo = PgOrdersRepository::new(cache_orders_client);
+    let cache_deliveries_repo = PgDeliveriesRepository::new(cache_deliveries_client);
+    let cache_payments_repo = PgPaymentsRepository::new(cache_payments_client);
+    let cache_items_repo = PgItemsRepository::new(cache_items_client);
+
+    // Load cache from DB
+    info!("Loading cache from database");
+    match order_cache.load_from_db(
+        &db_pool,
+        &cache_orders_repo,
+        &cache_deliveries_repo,
+        &cache_payments_repo,
+        &cache_items_repo,
+    ).await {
+        Ok(()) => info!("Cache loaded successfully from database"),
+        Err(e) => error!("Failed to load cache from database: {}", e),
+    }
 
     // Create a JoinSet to manage all our tasks
     let mut tasks = JoinSet::new();

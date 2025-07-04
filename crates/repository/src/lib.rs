@@ -301,7 +301,6 @@ impl OrdersRepository for PgOrdersRepository {
         let row = self.db.query_opt(query, &[&order_uid]).await?;
         match row {
             Some(row) => {
-                let date_created: NaiveDateTime = row.get("date_created");
                 Ok(Order {
                     order_uid: row.get("order_uid"),
                     track_number: row.get("track_number"),
@@ -315,7 +314,7 @@ impl OrdersRepository for PgOrdersRepository {
                     delivery_service: row.get("delivery_service"),
                     shardkey: row.get("shardkey"),
                     sm_id: row.get("sm_id"),
-                    date_created: chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(date_created, chrono::Utc),
+                    date_created: row.get("date_created"),
                     oof_shard: row.get("oof_shard"),
                 })
             }
