@@ -104,13 +104,13 @@ impl AppConfig {
 
         let settings = config::Config::builder()
             // Database
-            .set_default("db_host", "postgres")?
+            .set_default("db_host", "localhost")?
             .set_default("db_port", 5432)?
             .set_default("db_user", "orders_user")?
             .set_default("db_password", "securepassword")?
             .set_default("db_name", "orders_db")?
             // Kafka
-            .set_default("kafka_brokers", vec!["kafka:9092"])? // If multiple brokers, use comma-separated string in env
+            .set_default("kafka_brokers", vec!["localhost:9092"])? // If multiple brokers, use comma-separated string in env
             .set_default("kafka_topic", "orders")?
             .set_default("kafka_group_id", "orders_group")?
             // HTTP
@@ -126,13 +126,13 @@ impl AppConfig {
             // Postgres exporter
             .set_default(
                 "data_source_name",
-                "postgresql://orders_user:securepassword@postgres:5432/orders_db?sslmode=disable",
+                "postgresql://orders_user:securepassword@localhost:5432/orders_db?sslmode=disable",
             )?
             .set_default("postgres_exporter_port", 9187)?
             // Kafka exporter
             .set_default("kafka_exporter_port", 9308)?
             // Jaeger
-            .set_default("jaeger_agent_host", "jaeger")?
+            .set_default("jaeger_agent_host", "localhost")?
             .set_default("jaeger_agent_port", 6831)?
             .set_default("jaeger_collector_port", 14268)?
             .set_default("jaeger_ui_port", 16686)?

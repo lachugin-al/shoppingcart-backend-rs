@@ -21,7 +21,6 @@
 /// - Metrics for monitoring
 ///
 use std::sync::Arc;
-use std::path::Path;
 use tokio::sync::Notify;
 use tokio::signal;
 use tokio::task::JoinSet;
@@ -70,7 +69,7 @@ async fn main() -> Result<()> {
     let config = AppConfig::load().context("Failed to load configuration")?;
 
     // Initialize database
-    let db_pool = db::init_db_pool(&config).await.context("Failed to initialize database")?;
+    let _db_pool = db::init_db_pool(&config).await.context("Failed to initialize database")?;
 
     // Initialize cache
     let order_cache = Arc::new(OrderCache::new());

@@ -5,23 +5,22 @@
 
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use axum::{
     extract::{Path as AxumPath, State},
     http::StatusCode,
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
 use cache::OrderCache;
-use serde_json::json;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tracing::{error, info, warn};
 use prometheus::{
-    Counter, CounterVec, Histogram, HistogramOpts, HistogramVec, Opts, Registry,
+    CounterVec, HistogramOpts, HistogramVec, Opts, Registry,
 };
 
 /// Server represents an HTTP server for working with orders.
@@ -168,7 +167,7 @@ impl Server {
         let static_dir = self.static_dir.clone();
 
         Router::new()
-            .route("/order/:id", get(Self::handle_get_order_by_id))
+            .route("/order/{id}", get(Self::handle_get_order_by_id))
             .route("/api/orders", get(Self::handle_get_orders))
             .route("/api/send-test-order", post(Self::handle_send_test_order))
             .route("/health", get(Self::handle_health))
@@ -209,7 +208,7 @@ impl Server {
         let start = std::time::Instant::now();
 
         // Process the request
-        let mut response = next.run(req).await;
+        let response = next.run(req).await;
 
         // Calculate duration
         let duration = start.elapsed();
@@ -288,7 +287,7 @@ impl Server {
         }
     }
 
-    async fn handle_send_test_order(State(state): State<AppState>) -> Response {
+    async fn handle_send_test_order(State(_state): State<AppState>) -> Response {
         info!("Received request to send test order");
 
         match kafka_producer::produce_test_message().await {
